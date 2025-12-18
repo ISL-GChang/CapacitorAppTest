@@ -101,6 +101,62 @@ window.customElements.define(
       // Add click handler for camera button
       takePhotoBtn.addEventListener('click', async () => {
         try {
+          // PERMISSION HANDLING: Check and request permissions before accessing camera
+          // This handles first-time, denied, and revoked permission scenarios
+          
+          // PERMISSION HANDLING: Check and request permissions before accessing camera
+          // This handles first-time ('prompt'), denied, and revoked permission scenarios
+          
+          // PERMISSION HANDLING: Check and request permissions before accessing camera
+          // Check current permission status
+          // NATIVE: Returns 'granted', 'denied', or 'prompt' for camera and photos permissions
+          // WEB: May return 'prompt' or 'granted' depending on browser state
+          const permissions = await Camera.checkPermissions();
+          console.log('Current permissions:', JSON.stringify(permissions, null, 2));
+          
+          // Determine which permissions we need based on source
+          // For CameraSource.Prompt, we need both camera and photos permissions
+          // 'prompt' means permissions haven't been requested yet (first-time)
+          // 'denied' means user previously denied permissions
+          const needsCamera = permissions.camera !== 'granted';
+          const needsPhotos = permissions.photos !== 'granted';
+          
+          console.log('Permission status - camera:', permissions.camera, ', photos:', permissions.photos);
+          console.log('Needs camera permission:', needsCamera, ', needs photos permission:', needsPhotos);
+          
+          // FIRST-TIME PERMISSION: Request permissions if not granted
+          // NATIVE: Shows system permission dialog
+          // WEB: Shows browser permission prompt
+          if (needsCamera || needsPhotos) {
+            console.log('⚠️ Requesting camera permissions... (current status - camera:', permissions.camera, ', photos:', permissions.photos, ')');
+            
+            // Request permissions explicitly
+            // This will show the native Android permission dialog on first use
+            const requestedPermissions = await Camera.requestPermissions({
+              permissions: ['camera', 'photos']
+            });
+            
+            console.log('✅ Permission request result:', JSON.stringify(requestedPermissions, null, 2));
+            
+            // Check if permissions were granted after request
+            if (requestedPermissions.camera === 'denied' || requestedPermissions.photos === 'denied') {
+              // DENIED PERMISSION: User denied the permission request
+              console.error('❌ Permissions denied by user');
+              alert('Camera and photo library permissions are required to take photos. Please grant permissions in your device settings.');
+              return;
+            }
+            
+            // Verify permissions are now granted
+            if (requestedPermissions.camera !== 'granted' || requestedPermissions.photos !== 'granted') {
+              console.warn('⚠️ Permissions not fully granted after request:', requestedPermissions);
+              // Still proceed - getPhoto() will handle it or show error
+            } else {
+              console.log('✅ Permissions granted successfully');
+            }
+          } else {
+            console.log('✅ Permissions already granted - skipping request');
+          }
+          
           // NATIVE BEHAVIOR: On Android/iOS, this opens the native camera app
           // WEB BEHAVIOR: On web, this uses the browser's file picker API
           const image = await Camera.getPhoto({
@@ -138,10 +194,23 @@ window.customElements.define(
           }
           
         } catch (error) {
-          // NATIVE: Errors can include permission denials, camera unavailable, etc.
+          // ERROR HANDLING: Distinguish between different error types
+          // NATIVE: Errors can include permission denials, camera unavailable, user cancellation, etc.
           // WEB: Errors can include user cancellation, permission issues, etc.
           console.error('Error taking photo:', error);
-          alert('Error taking photo: ' + error.message);
+          
+          // Check if error is related to permissions
+          const errorMessage = error.message || error.toString();
+          if (errorMessage.includes('permission') || errorMessage.includes('Permission')) {
+            // DENIED or REVOKED PERMISSION: Provide specific guidance
+            alert('Camera access was denied. Please grant camera and photo library permissions in your device settings to use this feature.');
+          } else if (errorMessage.includes('cancel') || errorMessage.includes('Cancel')) {
+            // User cancelled - no need to show error
+            console.log('User cancelled photo capture');
+          } else {
+            // Other errors (camera unavailable, etc.)
+            alert('Error taking photo: ' + errorMessage);
+          }
         }
       });
     }
