@@ -1,0 +1,13 @@
+{
+  "appId": "com.example.app",
+  "appName": "ConferenceApp",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}
+
+
+
